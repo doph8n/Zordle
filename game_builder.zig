@@ -1,6 +1,7 @@
 const std = @import("std");
+const game = @import("game.zig");
 
-pub fn build_game(wordle_seed: *usize, hidden_word: []u8) !void {
+pub fn build_game(wordle_seed: *usize, hidden_word: []u8, words: *[][]u8) !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
     defer _ = gpa.deinit();
@@ -13,18 +14,18 @@ pub fn build_game(wordle_seed: *usize, hidden_word: []u8) !void {
 
     // Create dynamic 2D array
     const WORD_LENGTH = 5;
-    const words = try wordle_array(total_lines, WORD_LENGTH, allocator);
-    defer free_wordle_array(words, allocator);
+    words.* = try wordle_array(total_lines, WORD_LENGTH, allocator);
+    defer free_wordle_array(words.*, allocator);
 
     // Reset file cursor to beginning then read file's contents into words
     try file.seekTo(0);
-    try read_file(file, words, WORD_LENGTH, total_lines);
+    try read_file(file, words.*, WORD_LENGTH, total_lines);
 
     // Generating a seed to select the hidden word
     wordle_seed.* = try seed_generator(total_lines);
 
     // Copy the hidden word into the provided slice
-    @memcpy(hidden_word, words[wordle_seed.*]);
+    @memcpy(hidden_word, words.*[wordle_seed.*]);
 }
 
 pub fn line_count(file: std.fs.File) !usize {
