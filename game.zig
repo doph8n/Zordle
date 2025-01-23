@@ -2,7 +2,8 @@ const std = @import("std");
 const util = @import("util.zig");
 
 const GameState = struct {
-    board: [][]u8,
+    real_board: [][]u8,
+    seen_board: [][]u8,
     word_list: [][]const u8,
     target_word: []const u8,
     guesses_remaining: u8,
@@ -28,7 +29,8 @@ pub fn wordle() !void {
     _ = try file.readAll(file_contents);
 
     var game_state = GameState{
-        .board = try util.build_board(allocator, rows, cols),
+        .real_board = try util.make_matrix(allocator, rows, cols),
+        .seen_board = try util.build_board(allocator, rows, cols),
         .word_list = try util.get_words(allocator, file_contents),
         .target_word = undefined,
         .guesses_remaining = 6,
@@ -36,10 +38,19 @@ pub fn wordle() !void {
         .win = false,
     };
     defer {
-        for (game_state.board) |row| {
+        // Free real_board
+        for (game_state.real_board) |row| {
             allocator.free(row);
         }
-        allocator.free(game_state.board);
+        allocator.free(game_state.real_board);
+
+        // Free seen_board rows and then the outer array
+        for (game_state.seen_board) |row| {
+            allocator.free(row);
+        }
+        allocator.free(game_state.seen_board);
+
+        // Free word_list
         for (game_state.word_list) |word| {
             allocator.free(word);
         }
@@ -47,23 +58,28 @@ pub fn wordle() !void {
     }
 
     game_state.target_word = try util.select_rand_word(game_state.word_list);
-    std.debug.print("Target: {s}\n", .{game_state.target_word});
+    //std.debug.print("Target: {s}\n", .{game_state.target_word});
 
     while (game_state.guesses_remaining > 0 and !game_state.win) {
-        util.display_board(game_state.board);
+        util.display_board(game_state.seen_board);
 
         const guess = util.get_user_guess(allocator, cols);
         defer allocator.free(guess);
 
-        // Validate input
-        if (!util.validate_input(guess, game_state.word_list)) {
-            std.debug.print("Invalid guess. Not in the word list.\n", .{});
-            continue; // Skip invalid guesses
+        if (!util.check_word(guess, game_state.word_list)) {
+            std.debug.print("Invalid guess, not in the word list. Try again.\n", .{});
+            continue;
+        }
+        if (util.check_word(guess, game_state.real_board)) {
+            std.debug.print("Duplicate guess. Try again.\n", .{});
+            continue;
         }
 
-        util.update_board(game_state.board, guess, game_state.current_row);
+        util.update_board(game_state.real_board, game_state.seen_board, guess, game_state.current_row, false);
+        util.check_char(game_state.seen_board, guess, game_state.target_word, game_state.current_row);
 
         if (std.mem.eql(u8, guess, game_state.target_word)) {
+            util.update_board(game_state.real_board, game_state.seen_board, guess, game_state.current_row, true);
             game_state.win = true;
         }
 
@@ -73,7 +89,9 @@ pub fn wordle() !void {
 
     if (game_state.win) {
         std.debug.print("You won! The word was: {s}\n", .{game_state.target_word});
+        util.display_board(game_state.seen_board);
     } else {
         std.debug.print("You lost. The word was: {s}\n", .{game_state.target_word});
+        util.display_board(game_state.seen_board);
     }
 }
