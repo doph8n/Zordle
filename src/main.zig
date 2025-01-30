@@ -1,24 +1,46 @@
 const std = @import("std");
+const io = std.io;
+
+const mibu = @import("mibu");
+const events = mibu.events;
+const term = mibu.term;
+const utils = mibu.utils;
 
 pub fn main() !void {
-    // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
+    const stdin = io.getStdIn();
+    const stdout = io.getStdOut();
 
-    // stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    const stdout_file = std.io.getStdOut().writer();
-    var bw = std.io.bufferedWriter(stdout_file);
-    const stdout = bw.writer();
+    if (!std.posix.isatty(stdin.handle)) {
+        try stdout.writer().print("The current file descriptor is not a referring to a terminal.\n", .{});
+        return;
+    }
 
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
+    // Enable terminal raw mode, its very recommended when listening for events
+    var raw_term = try term.enableRawMode(stdin.handle);
+    defer raw_term.disableRawMode() catch {};
 
-    try bw.flush(); // don't forget to flush!
-}
+    try stdout.writer().print("Press q or Ctrl-C to exit...\n\r", .{});
 
-test "simple test" {
-    var list = std.ArrayList(i32).init(std.testing.allocator);
-    defer list.deinit(); // try commenting this out and see if zig detects the memory leak!
-    try list.append(42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
+    while (true) {
+        const next = try events.nextWithTimeout(stdin, 1000);
+        switch (next) {
+            .key => |k| switch (k) {
+                .char => |c| switch (c) {
+                    'q' => break,
+                    else => try stdout.writer().print("{u}\n\r", .{c}),
+                },
+                .ctrl => |c| switch (c) {
+                    'c' => break,
+                    else => try stdout.writer().print("ctrl+{u}\n\r", .{c}),
+                },
+                else => try stdout.writer().print("{s}\n\r", .{k}),
+            },
+            .none => try stdout.writer().print("Timeout.\n\r", .{}),
+
+            // ex. mouse events not supported yet
+            else => try stdout.writer().print("Event: {any}\n\r", .{next}),
+        }
+    }
+
+    try stdout.writer().print("Bye bye\n\r", .{});
 }
