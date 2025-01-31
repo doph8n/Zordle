@@ -1,46 +1,42 @@
 const std = @import("std");
-const io = std.io;
+const visual = @import("visual.zig");
 
 const mibu = @import("mibu");
 const events = mibu.events;
 const term = mibu.term;
 const utils = mibu.utils;
 
+const stdin = std.io.getStdIn();
+const stdout = std.io.getStdOut();
+
 pub fn main() !void {
-    const stdin = io.getStdIn();
-    const stdout = io.getStdOut();
+    try mibu.clear.all(stdout);
 
-    if (!std.posix.isatty(stdin.handle)) {
-        try stdout.writer().print("The current file descriptor is not a referring to a terminal.\n", .{});
-        return;
-    }
-
-    // Enable terminal raw mode, its very recommended when listening for events
     var raw_term = try term.enableRawMode(stdin.handle);
     defer raw_term.disableRawMode() catch {};
 
-    try stdout.writer().print("Press q or Ctrl-C to exit...\n\r", .{});
-
     while (true) {
-        const next = try events.nextWithTimeout(stdin, 1000);
+        const next = try events.next(stdin);
         switch (next) {
             .key => |k| switch (k) {
                 .char => |c| switch (c) {
-                    'q' => break,
                     else => try stdout.writer().print("{u}\n\r", .{c}),
                 },
-                .ctrl => |c| switch (c) {
-                    'c' => break,
-                    else => try stdout.writer().print("ctrl+{u}\n\r", .{c}),
+                .ctrl => |c| {
+                    if (c == 'c') {
+                        std.debug.print("Exiting...\n", .{});
+                        break;
+                    }
                 },
                 else => try stdout.writer().print("{s}\n\r", .{k}),
             },
-            .none => try stdout.writer().print("Timeout.\n\r", .{}),
-
-            // ex. mouse events not supported yet
-            else => try stdout.writer().print("Event: {any}\n\r", .{next}),
+            .resize => {
+                const size = try visual.getTerminalSize();
+                std.debug.print("Terminal resized: width={} height={}\n", .{ size.width, size.height });
+            },
+            else => {
+                std.debug.print("Unhandled event: {}\n", .{next});
+            },
         }
     }
-
-    try stdout.writer().print("Bye bye\n\r", .{});
 }
