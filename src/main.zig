@@ -10,18 +10,19 @@ const stdin = std.io.getStdIn();
 const stdout = std.io.getStdOut();
 
 pub fn main() !void {
-    try mibu.clear.all(stdout);
+    // Use `stdout.writer()` instead of passing a file descriptor
+    try mibu.clear.all(stdout.writer());
 
-    var raw_term = try term.enableRawMode(stdin.handle);
+    var raw_term = try term.enableRawMode(std.posix.STDIN_FILENO);
     defer raw_term.disableRawMode() catch {};
 
     while (true) {
-        const next = try events.next(stdin);
+        const next = try events.nextWithTimeout(stdin, 10);
+        const size = try visual.getTerminalSize();
+        std.debug.print("Terminal width={} height={}\n\r", .{ size.width, size.height });
         switch (next) {
             .key => |k| switch (k) {
-                .char => |c| switch (c) {
-                    else => try stdout.writer().print("{u}\n\r", .{c}),
-                },
+                .char => |c| try stdout.writer().print("{u}\n\r", .{c}),
                 .ctrl => |c| {
                     if (c == 'c') {
                         std.debug.print("Exiting...\n", .{});
@@ -30,13 +31,8 @@ pub fn main() !void {
                 },
                 else => try stdout.writer().print("{s}\n\r", .{k}),
             },
-            .resize => {
-                const size = try visual.getTerminalSize();
-                std.debug.print("Terminal resized: width={} height={}\n", .{ size.width, size.height });
-            },
-            else => {
-                std.debug.print("Unhandled event: {}\n", .{next});
-            },
+            .none => continue,
+            else => continue,
         }
     }
 }
