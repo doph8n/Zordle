@@ -10,6 +10,11 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const ziglyph = b.dependency("ziglyph", .{
+        .optimize = optimize,
+        .target = target,
+    });
+
     const exe = b.addExecutable(.{
         .name = "zordle",
         .root_source_file = b.path("src/main.zig"),
@@ -18,6 +23,7 @@ pub fn build(b: *std.Build) void {
     });
 
     exe.root_module.addImport("mibu", mibu_dep.module("mibu"));
+    exe.root_module.addImport("ziglyph", ziglyph.module("ziglyph"));
 
     b.installArtifact(exe);
 

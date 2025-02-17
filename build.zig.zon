@@ -22,12 +22,13 @@
     // `zig build --fetch` can be used to fetch all dependencies of a package, recursively.
     // Once all dependencies are fetched, `zig build` no longer requires
     // internet connectivity.
-    .dependencies = .{
-        .mibu = .{
-            .url = "git+https://github.com/xyaman/mibu#b001662c929e2719ee24be585a3120640f946337",
-            .hash = "1220d78664322b50e31a99cfb004b6fa60c43098d95abf7ec60a21ebeaf1c914edaf",
-        },
-    },
+    .dependencies = .{ .mibu = .{
+        .url = "git+https://github.com/xyaman/mibu#b001662c929e2719ee24be585a3120640f946337",
+        .hash = "1220d78664322b50e31a99cfb004b6fa60c43098d95abf7ec60a21ebeaf1c914edaf",
+    }, .ziglyph = .{
+        .url = "https://codeberg.org/dude_the_builder/ziglyph/archive/v0.13.1.tar.gz",
+        .hash = "12207831bce7d4abce57b5a98e8f3635811cfefd160bca022eb91fe905d36a02cf25",
+    } },
     .paths = .{
         "build.zig",
         "build.zig.zon",
