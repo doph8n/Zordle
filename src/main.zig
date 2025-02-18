@@ -9,8 +9,8 @@ const mibu = @import("mibu");
 const events = mibu.events;
 const term = mibu.term;
 
-const stdin = std.io.getStdIn();
-const stdout = std.io.getStdOut();
+const stdin = std.io.getStdErr();
+const writer = std.io.getStdOut().writer();
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -56,12 +56,12 @@ pub fn main() !void {
     }
     Zorde.target_word = try util.select_rand_word(Zorde.word_list);
 
-    try mibu.clear.all(stdout.writer());
+    try mibu.clear.all(writer);
     var size = try visual.getTerminalSize();
-    try visual.draw_Zordle(size.width);
-    try visual.display_board(Zorde.sboard, size.width);
+    try visual.draw_Zordle(size.height, size.width);
+    try visual.displayBoard(Zorde.sboard, size.height, size.width);
 
-    try mibu.cursor.hide(stdout.writer());
+    try mibu.cursor.hide(writer);
     var raw_term = try term.enableRawMode(std.posix.STDIN_FILENO);
     defer raw_term.disableRawMode() catch {};
 
@@ -71,27 +71,34 @@ pub fn main() !void {
         var guess: []const u21 = undefined;
         if (newSize.width != size.width or newSize.height != size.height) {
             size = newSize;
-            try mibu.clear.all(stdout.writer());
-            try visual.draw_Zordle(newSize.width);
-            try visual.display_board(Zorde.sboard, size.width);
-            std.debug.print("{u}", .{Zorde.target_word});
-        }
+            try mibu.clear.all(writer);
+            try visual.draw_Zordle(newSize.height, newSize.width);
+            try visual.displayBoard(Zorde.sboard, size.height, size.width);
 
+            // try mibu.cursor.goTo(writer, 0, newSize.height - 2);
+            // try writer.print("{u}", .{Zorde.target_word});
+        }
         switch (next) {
             .key => |k| switch (k) {
                 .char => |c| {
                     if (Zorde.current_col < cols and c != ' ') {
                         Zorde.rboard[Zorde.current_row][Zorde.current_col] = zg.toLower(c);
-                        Zorde.sboard[Zorde.current_row][Zorde.current_col] = zg.toUpper(c);
+                        Zorde.sboard[Zorde.current_row][Zorde.current_col] = game.CharacterState{
+                            .letter = zg.toUpper(c),
+                            .status = 0,
+                        };
                         Zorde.current_col += 1;
-                        try visual.display_board(Zorde.sboard, size.width);
+                        try visual.displayBoard(Zorde.sboard, size.height, size.width);
                     } else {
                         continue;
                     }
                 },
                 .ctrl => |c| {
                     if (c == 'c') {
-                        std.debug.print("Exiting...\n", .{});
+                        try mibu.cursor.goTo(writer, 0, newSize.height - 1);
+                        try visual.draw_Zordle(newSize.height, newSize.width);
+                        try visual.displayBoard(Zorde.sboard, newSize.height, newSize.width);
+                        try writer.print("{s}Exiting...{s}", .{ mibu.color.print.fg(.red), mibu.color.print.reset });
                         break;
                     }
                 },
@@ -101,28 +108,49 @@ pub fn main() !void {
                         continue;
                     }
                     if (!util.check_word(guess, Zorde.word_list)) {
-                        std.debug.print("Invalid guess, not in the word list. Try again.\n", .{});
+                        try mibu.clear.all(writer);
+                        try visual.draw_Zordle(newSize.height, newSize.width);
+                        try visual.displayBoard(Zorde.sboard, newSize.height, newSize.width);
+                        try mibu.cursor.goTo(writer, 0, newSize.height - 1);
+                        try writer.print("{s}Invalid guess, not in the word list. Try again.{s}", .{ mibu.color.print.fg(.red), mibu.color.print.reset });
                         continue;
                     }
-                    // if (util.check_word(guess, Zorde.rboard)) {
-                    //     std.debug.print("Duplicate guess. Try again.\n", .{});
-                    //     continue;
-                    // }
-                    util.update_board(Zorde.rboard, Zorde.sboard, guess, Zorde.current_row, false);
+                    if (util.check_dup_word(guess, Zorde.rboard, Zorde.current_row)) {
+                        try mibu.clear.all(writer);
+                        try visual.draw_Zordle(newSize.height, newSize.width);
+                        try visual.displayBoard(Zorde.sboard, newSize.height, newSize.width);
+                        try mibu.cursor.goTo(writer, 0, newSize.height - 1);
+                        try writer.print("{s}Duplicate guess. Try again.{s}", .{ mibu.color.print.fg(.red), mibu.color.print.reset });
+                        continue;
+                    }
+                    try util.check_char(Zorde.sboard, guess, Zorde.target_word, Zorde.current_row);
+                    try util.update_rboard(Zorde.rboard, guess, Zorde.current_row, false);
                     if (std.mem.eql(u21, guess, Zorde.target_word)) {
-                        util.update_board(Zorde.rboard, Zorde.sboard, guess, Zorde.current_row, true);
+                        try util.check_char(Zorde.sboard, guess, Zorde.target_word, Zorde.current_row);
+                        try util.update_rboard(Zorde.rboard, guess, Zorde.current_row, true);
+                        try mibu.clear.all(writer);
+                        try visual.draw_Zordle(newSize.height, newSize.width);
+                        try visual.displayBoard(Zorde.sboard, newSize.height, newSize.width);
                         Zorde.win = true;
                     }
                     Zorde.current_row += 1;
                     Zorde.guesses_remaining -= 1;
                     Zorde.current_col = 0;
+
+                    try mibu.clear.all(writer);
+                    try visual.draw_Zordle(newSize.height, newSize.width);
+                    try visual.displayBoard(Zorde.sboard, newSize.height, newSize.width);
                     continue;
                 },
                 .backspace => {
                     if (Zorde.current_col > 0) {
                         Zorde.current_col -= 1;
-                        Zorde.sboard[Zorde.current_row][Zorde.current_col] = '_';
-                        try visual.display_board(Zorde.sboard, newSize.width);
+                        Zorde.rboard[Zorde.current_row][Zorde.current_col] = '_';
+                        Zorde.sboard[Zorde.current_row][Zorde.current_col] = game.CharacterState{
+                            .letter = '_',
+                            .status = 0,
+                        };
+                        try visual.displayBoard(Zorde.sboard, newSize.height, newSize.width);
                     } else {
                         continue;
                     }
@@ -134,8 +162,10 @@ pub fn main() !void {
         }
     }
     if (Zorde.win) {
-        std.debug.print("You won! The word was: {u}\n", .{Zorde.target_word});
+        try mibu.cursor.goTo(writer, 0, size.height - 1);
+        try writer.print("{s}You won! The word was: {u}{s}", .{ mibu.color.print.fg(.green), Zorde.target_word, mibu.color.print.reset });
     } else {
-        std.debug.print("You lost. The word was: {u}\n", .{Zorde.target_word});
+        try mibu.cursor.goTo(writer, 0, size.height - 1);
+        try writer.print("{s}You lost. The word was: {u}{s}", .{ mibu.color.print.fg(.red), Zorde.target_word, mibu.color.print.reset });
     }
 }
