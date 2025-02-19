@@ -77,7 +77,6 @@ pub fn Zordle() !void {
 
     try mibu.clear.all(writer);
     var size = try visual.getTerminalSize();
-    try visual.draw_Zordle(size.height, size.width);
     try visual.displayBoard(Zorde.sboard, size.height, size.width);
 
     try mibu.cursor.hide(writer);
@@ -91,10 +90,9 @@ pub fn Zordle() !void {
         if (newSize.width != size.width or newSize.height != size.height) {
             size = newSize;
             try mibu.clear.all(writer);
-            try visual.draw_Zordle(newSize.height, newSize.width);
             try visual.displayBoard(Zorde.sboard, size.height, size.width);
 
-            // try mibu.cursor.goTo(writer, 0, newSize.height - 2);
+            // try mibu.cursor.goTo(writer, 0, newSize.height - 4);
             // try writer.print("{u}", .{Zorde.target_word});
         }
         switch (next) {
@@ -114,9 +112,8 @@ pub fn Zordle() !void {
                 },
                 .ctrl => |c| {
                     if (c == 'c') {
-                        try visual.draw_Zordle(newSize.height, newSize.width);
                         try visual.displayBoard(Zorde.sboard, newSize.height, newSize.width);
-                        try mibu.cursor.goTo(writer, 0, newSize.height - 2);
+                        try mibu.cursor.goTo(writer, 0, newSize.height - 4);
                         try writer.print("{s}Exiting...{s}", .{ mibu.color.print.fg(.red), mibu.color.print.reset });
                         break;
                     }
@@ -128,17 +125,15 @@ pub fn Zordle() !void {
                     }
                     if (!util.check_word(guess, Zorde.word_list)) {
                         try mibu.clear.all(writer);
-                        try visual.draw_Zordle(newSize.height, newSize.width);
                         try visual.displayBoard(Zorde.sboard, newSize.height, newSize.width);
-                        try mibu.cursor.goTo(writer, 0, newSize.height - 1);
+                        try mibu.cursor.goTo(writer, 0, newSize.height - 3);
                         try writer.print("{s}Invalid guess, not in the word list. Try again.{s}", .{ mibu.color.print.fg(.red), mibu.color.print.reset });
                         continue;
                     }
                     if (util.check_dup_word(guess, Zorde.rboard, Zorde.current_row)) {
                         try mibu.clear.all(writer);
-                        try visual.draw_Zordle(newSize.height, newSize.width);
                         try visual.displayBoard(Zorde.sboard, newSize.height, newSize.width);
-                        try mibu.cursor.goTo(writer, 0, newSize.height - 1);
+                        try mibu.cursor.goTo(writer, 0, newSize.height - 3);
                         try writer.print("{s}Duplicate guess. Try again.{s}", .{ mibu.color.print.fg(.red), mibu.color.print.reset });
                         continue;
                     }
@@ -148,7 +143,6 @@ pub fn Zordle() !void {
                         try util.check_char(Zorde.sboard, guess, Zorde.target_word, Zorde.current_row);
                         try util.update_rboard(Zorde.rboard, guess, Zorde.current_row, true);
                         try mibu.clear.all(writer);
-                        try visual.draw_Zordle(newSize.height, newSize.width);
                         try visual.displayBoard(Zorde.sboard, newSize.height, newSize.width);
                         Zorde.win = true;
                     }
@@ -157,7 +151,6 @@ pub fn Zordle() !void {
                     Zorde.current_col = 0;
 
                     try mibu.clear.all(writer);
-                    try visual.draw_Zordle(newSize.height, newSize.width);
                     try visual.displayBoard(Zorde.sboard, newSize.height, newSize.width);
                     continue;
                 },
@@ -181,10 +174,14 @@ pub fn Zordle() !void {
         }
     }
     if (Zorde.win) {
-        try mibu.cursor.goTo(writer, 0, size.height - 1);
-        try writer.print("{s}You won! The word was: {u}{s}", .{ mibu.color.print.fg(.green), Zorde.target_word, mibu.color.print.reset });
+        try mibu.cursor.goTo(writer, 0, size.height - 3);
+        try writer.print("{s}You won! The word was: {u}{s}\n", .{ mibu.color.print.fg(.green), Zorde.target_word, mibu.color.print.reset });
+        try mibu.cursor.goTo(writer, 0, size.height - 2);
+        try writer.print("{s}Press P to play again! Press Q to Quit!{s}", .{ mibu.color.print.fg(.green), mibu.color.print.reset });
     } else {
-        try mibu.cursor.goTo(writer, 0, size.height - 1);
-        try writer.print("{s}You lost. The word was: {u}{s}", .{ mibu.color.print.fg(.red), Zorde.target_word, mibu.color.print.reset });
+        try mibu.cursor.goTo(writer, 0, size.height - 3);
+        try writer.print("{s}You lost. The word was: {u}{s}\n", .{ mibu.color.print.fg(.red), Zorde.target_word, mibu.color.print.reset });
+        try mibu.cursor.goTo(writer, 0, size.height - 2);
+        try writer.print("{s}Press P to play again! Press Q to Quit!{s}", .{ mibu.color.print.fg(.green), mibu.color.print.reset });
     }
 }

@@ -22,13 +22,15 @@ pub fn getTerminalSize() !mibu.term.TermSize {
 pub fn draw_Zordle(height: u16, width: u16) !void {
     const writer = std.io.getStdOut().writer();
     const banner = [_][]const u8{
-        "╭───────╮",
-        "│ Zorde │",
-        "╰───────╯",
+        "╭────────╮",
+        "│ Zordle │",
+        "╰────────╯",
+        "- P: Play ",
+        "- Q: Quit ",
     };
 
     const banner_width = 10;
-    const window_height = 12;
+    const window_height = 5;
     const start_col = (@as(usize, width) -| banner_width) / 2;
     const start_row = (@as(usize, height) -| window_height) / 2;
 
@@ -42,16 +44,16 @@ pub fn displayBoard(sboard: [][]game.CharacterState, height: u16, width: u16) !v
     const writer = std.io.getStdOut().writer();
 
     const board_width = 14;
-    const window_height = 12;
+    const window_height = 8;
     const start_col = (@as(usize, width) -| board_width) / 2;
     const start_row = (@as(usize, height) -| window_height) / 2;
 
-    try mibu.cursor.goTo(writer, start_col, start_row + 3);
+    try mibu.cursor.goTo(writer, start_col, start_row - 1);
     try writer.print("{s}╭───────────╮{s}\n", .{ mibu.color.print.fg(.yellow), mibu.color.print.reset });
 
     for (0..sboard.len) |row_index| {
         const row = sboard[row_index];
-        try mibu.cursor.goTo(writer, start_col, start_row + 4 + row_index);
+        try mibu.cursor.goTo(writer, start_col, start_row + row_index);
         try writer.print("{s}│{s} ", .{ mibu.color.print.fg(.yellow), mibu.color.print.reset });
 
         for (0..row.len) |col_index| {
@@ -74,6 +76,6 @@ pub fn displayBoard(sboard: [][]game.CharacterState, height: u16, width: u16) !v
         try writer.print("{s}│{s}\n", .{ mibu.color.print.fg(.yellow), mibu.color.print.reset });
     }
 
-    try mibu.cursor.goTo(writer, start_col, start_row + 4 + sboard.len);
+    try mibu.cursor.goTo(writer, start_col, start_row + sboard.len);
     try writer.print("{s}╰───────────╯{s}\n", .{ mibu.color.print.fg(.yellow), mibu.color.print.reset });
 }
